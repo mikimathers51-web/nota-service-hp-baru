@@ -1,10 +1,10 @@
-name: 📱 Build Android Debug APK (Capacitor 6)
+name: Build Android Debug APK Capacitor 6
 
 on:
   workflow_dispatch:
     inputs:
       build_notes:
-        description: '📝 Catatan build'
+        description: 'Catatan build'
         required: false
         type: string
         default: 'Build Capacitor 6'
@@ -17,36 +17,33 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: 📥 Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🔧 Setup Node.js 18
+      - name: Setup Node.js 18
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: ☕ Setup Java 17
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: 🤖 Setup Android SDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: ⚙️ Setup Gradle
+      - name: Setup Gradle
         run: |
           mkdir -p ~/.gradle
           echo "org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8" >> ~/.gradle/gradle.properties
           echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
           echo "org.gradle.parallel=true" >> ~/.gradle/gradle.properties
 
-      # ==========================================
-      # STEP 1: Create package.json (Capacitor 6)
-      # ==========================================
-      - name: 📝 Create package.json
+      - name: Create package.json
         run: |
-          cat > package.json << 'EOF'
+          cat > package.json << 'ENDOFFILE'
           {
             "name": "nota-service-hp",
             "version": "1.0.0",
@@ -72,34 +69,27 @@ jobs:
               "@capacitor/cli": "^6.1.2"
             }
           }
-          EOF
+          ENDOFFILE
 
-      # ==========================================
-      # STEP 2: Install dependencies
-      # ==========================================
-      - name: 📦 Install dependencies
+      - name: Install dependencies
         run: |
           npm install
           npm install -g @capacitor/cli@^6.1.2
 
-      # ==========================================
-      # STEP 3: Prepare www directory + PWA Files
-      # ==========================================
-      - name: 🏗️ Prepare www directory & PWA Assets
+      - name: Prepare www directory and PWA files
         run: |
           mkdir -p www
           
           if [ -f "index.html" ]; then
-            echo "✅ index.html found in root"
+            echo "index.html found in root"
           else
-            echo "❌ index.html not found in root directory!"
+            echo "index.html not found in root directory"
             ls -la
             exit 1
           fi
 
-          # Generate Manifest
-          cat > www/manifest.json << 'MANIFESTEOF'
-          {
+          # Generate manifest.json
+          echo '{
             "name": "Nota Service HP - Professional",
             "short_name": "ServiceHP",
             "description": "Sistem Manajemen Service HP Profesional",
@@ -112,23 +102,22 @@ jobs:
             "categories": ["business", "productivity"],
             "icons": [
               {
-                "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%23667eea' width='192' height='192'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='100'%3E📱%3C/text%3E%3C/svg%3E",
+                "src": "data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 192 192%22%3E%3Crect fill=%22%23667eea%22 width=%22192%22 height=%22192%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%22100%22%3E%F0%9F%93%B1%3C/text%3E%3C/svg%3E",
                 "sizes": "192x192",
                 "type": "image/svg+xml",
                 "purpose": "any maskable"
               },
               {
-                "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect fill='%23667eea' width='512' height='512'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='250'%3E📱%3C/text%3E%3C/svg%3E",
+                "src": "data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22%3E%3Crect fill=%22%23667eea%22 width=%22512%22 height=%22512%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%22250%22%3E%F0%9F%93%B1%3C/text%3E%3C/svg%3E",
                 "sizes": "512x512",
                 "type": "image/svg+xml",
                 "purpose": "any maskable"
               }
             ]
-          }
-          MANIFESTEOF
+          }' > www/manifest.json
 
-          # Generate Service Worker
-          cat > www/service-worker.js << 'SWEOF'
+          # Generate service-worker.js
+          cat > www/service-worker.js << 'ENDOFFILE'
           const CACHE_NAME = 'nota-service-hp-v1';
           const STATIC_ASSETS = ['/', '/index.html'];
 
@@ -176,26 +165,23 @@ jobs:
               })
             );
           });
-          SWEOF
+          ENDOFFILE
 
-          # Copy & Inject index.html
+          # Copy and modify index.html
           cp index.html www/index.html
           
-          # Inject manifest
+          # Inject manifest link
           sed -i 's|<head>|<head>\n    <link rel="manifest" href="manifest.json">\n    <meta name="theme-color" content="#667eea">|' www/index.html
           
           # Inject service worker registration
           sed -i 's|</body>|<script>if("serviceWorker"in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("service-worker.js").then(function(r){console.log("[PWA] SW registered")}).catch(function(e){console.log("[PWA] SW failed:",e)})});}</script></body>|' www/index.html
           
-          echo "✅ www/ prepared"
+          echo "www directory prepared"
           ls -la www/
 
-      # ==========================================
-      # STEP 4: Create capacitor.config.json
-      # ==========================================
-      - name: 🔧 Create capacitor.config.json
+      - name: Create capacitor.config.json
         run: |
-          cat > capacitor.config.json << 'CONFIGEOF'
+          cat > capacitor.config.json << 'ENDOFFILE'
           {
             "appId": "com.notaservicehp.app",
             "appName": "Nota Service HP",
@@ -226,12 +212,9 @@ jobs:
               }
             }
           }
-          CONFIGEOF
+          ENDOFFILE
 
-      # ==========================================
-      # STEP 5: Add Android Platform
-      # ==========================================
-      - name: 🤖 Add Android Platform
+      - name: Add Android Platform
         run: |
           rm -rf android
           npx cap add android 2>&1 | tee add.log
@@ -240,12 +223,9 @@ jobs:
             cat add.log
             exit 1
           fi
-          echo "✅ Android platform created"
+          echo "Android platform created"
 
-      # ==========================================
-      # STEP 6: Inject Android Permissions
-      # ==========================================
-      - name: 🔐 Inject Android Permissions
+      - name: Inject Android Permissions
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           
@@ -256,44 +236,39 @@ jobs:
           
           cp "$MANIFEST" "$MANIFEST.bak"
           
-          # Hapus permission lama
+          # Remove old permissions
           sed -i '/uses-permission/d' "$MANIFEST"
           sed -i '/uses-feature/d' "$MANIFEST"
           
-          # Hapus </manifest> terakhir
+          # Remove closing manifest tag
           sed -i '/^<\/manifest>$/d' "$MANIFEST"
           
-          # Inject permissions
-          cat >> "$MANIFEST" << 'PERMEOF'
-
-    <!-- Camera Plugin -->
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
-
-    <!-- Contacts Plugin -->
-    <uses-permission android:name="android.permission.READ_CONTACTS" />
-    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
-
-    <!-- Bluetooth Plugin -->
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-
-</manifest>
-PERMEOF
+          # Add permissions
+          echo '' >> "$MANIFEST"
+          echo '    <!-- Camera Plugin -->' >> "$MANIFEST"
+          echo '    <uses-permission android:name="android.permission.CAMERA" />' >> "$MANIFEST"
+          echo '    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />' >> "$MANIFEST"
+          echo '    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />' >> "$MANIFEST"
+          echo '    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />' >> "$MANIFEST"
+          echo '    <uses-feature android:name="android.hardware.camera" android:required="false" />' >> "$MANIFEST"
+          echo '' >> "$MANIFEST"
+          echo '    <!-- Contacts Plugin -->' >> "$MANIFEST"
+          echo '    <uses-permission android:name="android.permission.READ_CONTACTS" />' >> "$MANIFEST"
+          echo '    <uses-permission android:name="android.permission.WRITE_CONTACTS" />' >> "$MANIFEST"
+          echo '' >> "$MANIFEST"
+          echo '    <!-- Bluetooth Plugin -->' >> "$MANIFEST"
+          echo '    <uses-permission android:name="android.permission.BLUETOOTH" />' >> "$MANIFEST"
+          echo '    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />' >> "$MANIFEST"
+          echo '    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />' >> "$MANIFEST"
+          echo '    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />' >> "$MANIFEST"
+          echo '    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />' >> "$MANIFEST"
+          echo '    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />' >> "$MANIFEST"
+          echo '' >> "$MANIFEST"
+          echo '</manifest>' >> "$MANIFEST"
           
-          echo "✅ Permissions injected"
+          echo "Permissions injected"
 
-      # ==========================================
-      # STEP 7: Sync Capacitor
-      # ==========================================
-      - name: 🔄 Sync Capacitor
+      - name: Sync Capacitor
         run: |
           npx cap sync android 2>&1 | tee sync.log
           if grep -qi "error" sync.log; then
@@ -301,25 +276,19 @@ PERMEOF
             cat sync.log
             exit 1
           fi
-          echo "✅ Sync completed"
+          echo "Sync completed"
 
-      # ==========================================
-      # STEP 8: Build APK
-      # ==========================================
-      - name: 🔨 Build Debug APK
+      - name: Build Debug APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew clean assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
 
-      # ==========================================
-      # STEP 9: Verify APK
-      # ==========================================
-      - name: 🔍 Verify APK
+      - name: Verify APK
         run: |
           APK_PATH="android/app/build/outputs/apk/debug/app-debug.apk"
           if [ -f "$APK_PATH" ]; then
-            echo "✅ APK built successfully"
+            echo "APK built successfully"
             ls -lh "$APK_PATH"
             SIZE_BYTES=$(stat -c%s "$APK_PATH")
             echo "size_bytes=$SIZE_BYTES" >> $GITHUB_ENV
@@ -328,27 +297,21 @@ PERMEOF
             exit 1
           fi
 
-      # ==========================================
-      # STEP 10: Upload APK
-      # ==========================================
-      - name: 📤 Upload APK (Latest)
+      - name: Upload APK Latest
         uses: actions/upload-artifact@v4
         with:
           name: nota-service-hp-latest
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
-      - name: 📤 Upload APK (Versioned)
+      - name: Upload APK Versioned
         uses: actions/upload-artifact@v4
         with:
           name: nota-service-hp-build-${{ github.run_number }}
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 90
 
-      # ==========================================
-      # STEP 11: Build Summary
-      # ==========================================
-      - name: 📝 Build Summary
+      - name: Build Summary
         run: |
           SIZE_MB=$((${{ env.size_bytes }} / 1024 / 1024))
           echo "## Build Success! (Capacitor 6)" >> $GITHUB_STEP_SUMMARY
@@ -359,9 +322,6 @@ PERMEOF
           echo "| Capacitor | 6.1.2 |" >> $GITHUB_STEP_SUMMARY
           echo "| APK Size | ${SIZE_MB} MB |" >> $GITHUB_STEP_SUMMARY
 
-      # ==========================================
-      # DEBUG: On Failure
-      # ==========================================
       - name: Debug on Failure
         if: failure()
         run: |
