@@ -73,8 +73,6 @@ jobs:
             }
           }
           EOF
-          
-          cat package.json
 
       # ==========================================
       # STEP 2: Install dependencies
@@ -91,20 +89,16 @@ jobs:
         run: |
           mkdir -p www
           
-          # ✅ Cek index.html di ROOT (bukan src/)
           if [ -f "index.html" ]; then
             echo "✅ index.html found in root"
           else
             echo "❌ index.html not found in root directory!"
-            echo "=== Current directory structure ==="
             ls -la
             exit 1
           fi
 
-          # ==========================================
-          # 📝 AUTO-GENERATE MANIFEST.JSON
-          # ==========================================
-          cat > www/manifest.json << 'EOF'
+          # Generate Manifest
+          cat > www/manifest.json << 'MANIFESTEOF'
           {
             "name": "Nota Service HP - Professional",
             "short_name": "ServiceHP",
@@ -131,34 +125,27 @@ jobs:
               }
             ]
           }
-          EOF
-          echo "✅ manifest.json created in www/"
+          MANIFESTEOF
 
-          # ==========================================
-          # 📝 AUTO-GENERATE SERVICE WORKER
-          # ==========================================
-          cat > www/service-worker.js << 'EOF'
+          # Generate Service Worker
+          cat > www/service-worker.js << 'SWEOF'
           const CACHE_NAME = 'nota-service-hp-v1';
           const STATIC_ASSETS = ['/', '/index.html'];
 
           self.addEventListener('install', (event) => {
-            console.log('[SW] Installing Service Worker...');
             event.waitUntil(
               caches.open(CACHE_NAME).then((cache) => {
-                console.log('[SW] Caching static assets');
                 return cache.addAll(STATIC_ASSETS);
               }).then(() => self.skipWaiting())
             );
           });
 
           self.addEventListener('activate', (event) => {
-            console.log('[SW] Activating Service Worker...');
             event.waitUntil(
               caches.keys().then((cacheNames) => {
                 return Promise.all(
                   cacheNames.map((cacheName) => {
                     if (cacheName !== CACHE_NAME) {
-                      console.log('[SW] Deleting old cache:', cacheName);
                       return caches.delete(cacheName);
                     }
                   })
@@ -170,23 +157,18 @@ jobs:
           self.addEventListener('fetch', (event) => {
             event.respondWith(
               caches.match(event.request).then((cached) => {
-                if (cached) {
-                  return cached;
-                }
+                if (cached) return cached;
                 return fetch(event.request).then((response) => {
                   if (!response || response.status !== 200 || event.request.method !== 'GET') {
                     return response;
                   }
-                  if (event.request.url.startsWith('chrome-extension://')) {
-                    return response;
-                  }
+                  if (event.request.url.startsWith('chrome-extension://')) return response;
                   const responseToCache = response.clone();
                   caches.open(CACHE_NAME).then((cache) => {
                     cache.put(event.request, responseToCache);
                   });
                   return response;
-                }).catch((error) => {
-                  console.log('[SW] Fetch failed:', error);
+                }).catch(() => {
                   if (event.request.mode === 'navigate') {
                     return caches.match('/index.html');
                   }
@@ -194,23 +176,18 @@ jobs:
               })
             );
           });
-          EOF
-          echo "✅ service-worker.js created in www/"
+          SWEOF
 
-          # ==========================================
-          # 📄 COPY & MODIFY INDEX.HTML (dari root ke www/)
-          # ==========================================
+          # Copy & Inject index.html
           cp index.html www/index.html
-          echo "✅ Copied index.html from root to www/"
           
-          # Inject manifest link setelah <head> tag
+          # Inject manifest
           sed -i 's|<head>|<head>\n    <link rel="manifest" href="manifest.json">\n    <meta name="theme-color" content="#667eea">|' www/index.html
           
-          # Inject service worker registration sebelum </body>
-          sed -i 's|</body>|<script>\n      if ("serviceWorker" in navigator) {\n        window.addEventListener("load", () => {\n          navigator.serviceWorker.register("service-worker.js")\n            .then(reg => console.log("[PWA] Service Worker registered"))\n            .catch(err => console.log("[PWA] Service Worker registration failed:", err));\n        });\n      }\n    </script>\n  </body>|' www/index.html
+          # Inject service worker registration
+          sed -i 's|</body>|<script>if("serviceWorker"in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("service-worker.js").then(function(r){console.log("[PWA] SW registered")}).catch(function(e){console.log("[PWA] SW failed:",e)})});}</script></body>|' www/index.html
           
-          echo "✅ Injected manifest and service worker to www/index.html"
-          echo "=== www directory contents ==="
+          echo "✅ www/ prepared"
           ls -la www/
 
       # ==========================================
@@ -218,7 +195,7 @@ jobs:
       # ==========================================
       - name: 🔧 Create capacitor.config.json
         run: |
-          cat > capacitor.config.json << 'EOF'
+          cat > capacitor.config.json << 'CONFIGEOF'
           {
             "appId": "com.notaservicehp.app",
             "appName": "Nota Service HP",
@@ -229,11 +206,7 @@ jobs:
             },
             "plugins": {
               "Camera": {
-                "presentationStyle": "fullscreen",
-                "promptLabelHeader": "Akses Kamera",
-                "promptLabelCancel": "Batal",
-                "promptLabelPhoto": "Ambil Foto",
-                "promptLabelPicture": "Dari Galeri"
+                "presentationStyle": "fullscreen"
               },
               "SplashScreen": {
                 "launchShowDuration": 2000,
@@ -253,9 +226,7 @@ jobs:
               }
             }
           }
-          EOF
-          
-          cat capacitor.config.json
+          CONFIGEOF
 
       # ==========================================
       # STEP 5: Add Android Platform
@@ -263,57 +234,50 @@ jobs:
       - name: 🤖 Add Android Platform
         run: |
           rm -rf android
-          
           npx cap add android 2>&1 | tee add.log
-          
           if [ ! -d "android" ]; then
-            echo "❌ Failed to create android directory"
+            echo "Failed to create android directory"
             cat add.log
             exit 1
           fi
-          
           echo "✅ Android platform created"
-          ls -la android/
 
       # ==========================================
-      # STEP 6: 🔐 Inject Android Permissions (Camera, Contacts, Bluetooth, Storage)
+      # STEP 6: Inject Android Permissions
       # ==========================================
       - name: 🔐 Inject Android Permissions
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           
           if [ ! -f "$MANIFEST" ]; then
-            echo "❌ AndroidManifest.xml not found"
-            find android -name "AndroidManifest.xml"
+            echo "AndroidManifest.xml not found"
             exit 1
           fi
           
-          echo "✅ Found AndroidManifest.xml"
           cp "$MANIFEST" "$MANIFEST.bak"
           
-          # Hapus permission lama jika ada (untuk idempotency)
+          # Hapus permission lama
           sed -i '/uses-permission/d' "$MANIFEST"
           sed -i '/uses-feature/d' "$MANIFEST"
-          sed -i '/<!-- Plugin/d' "$MANIFEST"
           
           # Hapus </manifest> terakhir
           sed -i '/^<\/manifest>$/d' "$MANIFEST"
           
-          # Inject SEMUA permission yang diperlukan
-          cat >> "$MANIFEST" << 'EOF'
+          # Inject permissions
+          cat >> "$MANIFEST" << 'PERMEOF'
 
-    <!-- 📷 Camera Plugin (@capacitor/camera) -->
+    <!-- Camera Plugin -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
-    <!-- 📇 Contacts Plugin (@capacitor-community/contacts) -->
+    <!-- Contacts Plugin -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
 
-    <!-- 📡 Bluetooth Plugin (@capacitor-community/bluetooth-le) -->
+    <!-- Bluetooth Plugin -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -322,10 +286,9 @@ jobs:
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
 </manifest>
-EOF
+PERMEOF
           
-          echo "✅ All permissions injected:"
-          cat "$MANIFEST"
+          echo "✅ Permissions injected"
 
       # ==========================================
       # STEP 7: Sync Capacitor
@@ -333,13 +296,11 @@ EOF
       - name: 🔄 Sync Capacitor
         run: |
           npx cap sync android 2>&1 | tee sync.log
-          
           if grep -qi "error" sync.log; then
-            echo "❌ Sync failed"
+            echo "Sync failed"
             cat sync.log
             exit 1
           fi
-          
           echo "✅ Sync completed"
 
       # ==========================================
@@ -357,17 +318,13 @@ EOF
       - name: 🔍 Verify APK
         run: |
           APK_PATH="android/app/build/outputs/apk/debug/app-debug.apk"
-          
           if [ -f "$APK_PATH" ]; then
             echo "✅ APK built successfully"
             ls -lh "$APK_PATH"
             SIZE_BYTES=$(stat -c%s "$APK_PATH")
             echo "size_bytes=$SIZE_BYTES" >> $GITHUB_ENV
-            echo "size_mb=$((SIZE_BYTES / 1024 / 1024)) MB"
           else
-            echo "❌ APK not found"
-            echo "=== Available files ==="
-            find android -name "*.apk" 2>/dev/null || echo "No APK found"
+            echo "APK not found"
             exit 1
           fi
 
@@ -394,38 +351,25 @@ EOF
       - name: 📝 Build Summary
         run: |
           SIZE_MB=$((${{ env.size_bytes }} / 1024 / 1024))
-          echo "## ✅ Build Success! (Capacitor 6)" >> $GITHUB_STEP_SUMMARY
+          echo "## Build Success! (Capacitor 6)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔢 Build Number | ${{ github.run_number }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📦 Capacitor | 6.1.2 |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📷 Kamera | ✅ CAMERA + STORAGE |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📇 Kontak | ✅ READ/WRITE_CONTACTS |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📡 Bluetooth | ✅ BLUETOOTH + LOCATION |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📱 PWA | ✅ Manifest + Service Worker |" >> $GITHUB_STEP_SUMMARY
-          echo "| 📦 APK Size | ${SIZE_MB} MB |" >> $GITHUB_STEP_SUMMARY
-          echo "| ⬇️ Download | Artifacts di atas |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Number | ${{ github.run_number }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Capacitor | 6.1.2 |" >> $GITHUB_STEP_SUMMARY
+          echo "| APK Size | ${SIZE_MB} MB |" >> $GITHUB_STEP_SUMMARY
 
       # ==========================================
       # DEBUG: On Failure
       # ==========================================
-      - name: 📋 Debug on Failure
+      - name: Debug on Failure
         if: failure()
         run: |
           echo "=== package.json ==="
-          cat package.json
-          echo "=== capacitor.config.json ==="
-          cat capacitor.config.json
+          cat package.json 2>/dev/null || echo "Not found"
           echo "=== Directory structure ==="
           ls -la
-          if [ -d "www" ]; then
-            echo "=== www/ contents ==="
-            ls -la www/
-          fi
           if [ -d "android" ]; then
             echo "=== AndroidManifest.xml ==="
             cat android/app/src/main/AndroidManifest.xml 2>/dev/null || echo "Not found"
-            echo "=== Build log (last 50 lines) ==="
-            cat android/build.log 2>/dev/null | tail -50 || echo "No build log"
           fi
