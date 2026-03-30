@@ -170,10 +170,10 @@ jobs:
           # Copy and modify index.html
           cp index.html www/index.html
           
-          # Inject manifest link
+          # Inject manifest
           sed -i 's|<head>|<head>\n    <link rel="manifest" href="manifest.json">\n    <meta name="theme-color" content="#667eea">|' www/index.html
           
-          # Inject service worker registration
+          # Inject service worker
           sed -i 's|</body>|<script>if("serviceWorker"in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("service-worker.js").then(function(r){console.log("[PWA] SW registered")}).catch(function(e){console.log("[PWA] SW failed:",e)})});}</script></body>|' www/index.html
           
           echo "www directory prepared"
@@ -186,6 +186,7 @@ jobs:
             "appId": "com.notaservicehp.app",
             "appName": "Nota Service HP",
             "webDir": "www",
+            "bundledWebRuntime": false,
             "server": {
               "androidScheme": "https",
               "cleartext": true
@@ -193,6 +194,9 @@ jobs:
             "plugins": {
               "Camera": {
                 "presentationStyle": "fullscreen"
+              },
+              "Contacts": {
+                "permissionRead": "Aplikasi memerlukan akses kontak untuk import data pelanggan"
               },
               "SplashScreen": {
                 "launchShowDuration": 2000,
@@ -243,7 +247,7 @@ jobs:
           # Remove closing manifest tag
           sed -i '/^<\/manifest>$/d' "$MANIFEST"
           
-          # Add permissions
+          # Add Camera permissions
           echo '' >> "$MANIFEST"
           echo '    <!-- Camera Plugin -->' >> "$MANIFEST"
           echo '    <uses-permission android:name="android.permission.CAMERA" />' >> "$MANIFEST"
@@ -251,10 +255,15 @@ jobs:
           echo '    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />' >> "$MANIFEST"
           echo '    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />' >> "$MANIFEST"
           echo '    <uses-feature android:name="android.hardware.camera" android:required="false" />' >> "$MANIFEST"
+          
+          # Add Contacts permissions
           echo '' >> "$MANIFEST"
           echo '    <!-- Contacts Plugin -->' >> "$MANIFEST"
           echo '    <uses-permission android:name="android.permission.READ_CONTACTS" />' >> "$MANIFEST"
           echo '    <uses-permission android:name="android.permission.WRITE_CONTACTS" />' >> "$MANIFEST"
+          echo '    <uses-permission android:name="android.permission.GET_ACCOUNTS" />' >> "$MANIFEST"
+          
+          # Add Bluetooth permissions
           echo '' >> "$MANIFEST"
           echo '    <!-- Bluetooth Plugin -->' >> "$MANIFEST"
           echo '    <uses-permission android:name="android.permission.BLUETOOTH" />' >> "$MANIFEST"
@@ -263,6 +272,8 @@ jobs:
           echo '    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />' >> "$MANIFEST"
           echo '    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />' >> "$MANIFEST"
           echo '    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />' >> "$MANIFEST"
+          
+          # Close manifest
           echo '' >> "$MANIFEST"
           echo '</manifest>' >> "$MANIFEST"
           
